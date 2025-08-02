@@ -9,9 +9,14 @@ import {
   insertNotificationSchema, insertChatMessageSchema
 } from "@shared/schema";
 
+/**
+ * دالة لتسجيل جميع مسارات (routes) التطبيق.
+ * @param app - نسخة من تطبيق Express.
+ * @returns {Promise<Server>} - خادم HTTP جاهز للاستماع.
+ */
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // Authentication routes
+  // --- مسارات المصادقة (Authentication) ---
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -53,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Organization routes
+  // --- مسارات الشركات (Organizations) ---
   app.get("/api/organizations/:userId", async (req, res) => {
     try {
       const organizations = await storage.getUserOrganizations(req.params.userId);
@@ -77,7 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dashboard stats
+  // --- إحصائيات لوحة التحكم (Dashboard) ---
   app.get("/api/dashboard/:organizationId", async (req, res) => {
     try {
       const stats = await storage.getDashboardStats(req.params.organizationId);
@@ -87,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Accounts routes
+  // --- مسارات الحسابات (Accounts) ---
   app.get("/api/accounts/:organizationId", async (req, res) => {
     try {
       const accounts = await storage.getAccounts(req.params.organizationId);
@@ -107,7 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Journal entries routes
+  // --- مسارات قيود اليومية (Journal Entries) ---
   app.get("/api/journal-entries/:organizationId", async (req, res) => {
     try {
       const entries = await storage.getJournalEntries(req.params.organizationId);
@@ -122,7 +127,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { entry, details } = req.body;
       const entryData = insertJournalEntrySchema.parse(entry);
       
-      // Validate that debits equal credits
       const totalDebits = details.reduce((sum: number, d: any) => sum + parseFloat(d.debit || 0), 0);
       const totalCredits = details.reduce((sum: number, d: any) => sum + parseFloat(d.credit || 0), 0);
       
@@ -139,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Contacts routes
+  // --- مسارات جهات الاتصال (Contacts) ---
   app.get("/api/contacts/:organizationId", async (req, res) => {
     try {
       const contacts = await storage.getContacts(req.params.organizationId);
@@ -159,7 +163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Invoices routes
+  // --- مسارات الفواتير (Invoices) ---
   app.get("/api/invoices/:organizationId", async (req, res) => {
     try {
       const invoices = await storage.getInvoices(req.params.organizationId);
@@ -179,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Natural Language Processing
+  // --- مسارات الذكاء الاصطناعي (AI) ---
   app.post("/api/ai/process", async (req, res) => {
     try {
       const { command, context } = req.body;
@@ -203,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Notifications routes
+  // --- مسارات الإشعارات (Notifications) ---
   app.get("/api/notifications/:userId", async (req, res) => {
     try {
       const notifications = await storage.getUserNotifications(req.params.userId);
@@ -232,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Chat routes
+  // --- مسارات الدردشة (Chat) ---
   app.get("/api/chat/:organizationId", async (req, res) => {
     try {
       const messages = await storage.getChatMessages(req.params.organizationId);
@@ -252,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Telegram webhook
+  // --- مسارات تيليجرام (Telegram) ---
   app.post("/api/telegram/webhook", async (req, res) => {
     try {
       const { message } = req.body;
@@ -262,7 +266,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message.text,
           message.from?.id?.toString()
         );
-        
         await telegramBotService.sendMessage(message.chat.id.toString(), response);
       }
       res.json({ ok: true });
@@ -272,7 +275,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Telegram bot management
   app.get("/api/telegram/bot-info", async (req, res) => {
     try {
       const botInfo = await telegramBotService.getBotInfo();
@@ -306,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reports routes
+  // --- مسارات التقارير (Reports) ---
   app.get("/api/reports/trial-balance/:organizationId", async (req, res) => {
     try {
       const accounts = await storage.getAccounts(req.params.organizationId);
@@ -337,14 +339,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalExpenses = expenseAccounts.reduce((sum, acc) => sum + parseFloat(acc.balance), 0);
       
       res.json({
-        revenues: revenueAccounts.map(acc => ({
-          name: acc.name,
-          amount: Math.abs(parseFloat(acc.balance))
-        })),
-        expenses: expenseAccounts.map(acc => ({
-          name: acc.name,
-          amount: parseFloat(acc.balance)
-        })),
+        revenues: revenueAccounts.map(acc => ({ name: acc.name, amount: Math.abs(parseFloat(acc.balance)) })),
+        expenses: expenseAccounts.map(acc => ({ name: acc.name, amount: parseFloat(acc.balance) })),
         totalRevenue,
         totalExpenses,
         netIncome: totalRevenue - totalExpenses
@@ -354,6 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // إنشاء خادم HTTP وإعادته لكي يتمكن الملف الرئيسي من تشغيله
   const httpServer = createServer(app);
   return httpServer;
 }
