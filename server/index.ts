@@ -1,3 +1,5 @@
+// ------------------- بداية الكود المنسوخ -------------------
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -36,36 +38,52 @@ app.use((req, res, next) => {
   next();
 });
 
+// vvvvvvvvvvvvvvvvvvvv  هنا التعديل المهم vvvvvvvvvvvvvvvvvvvv
 (async () => {
-  const server = await registerRoutes(app);
+  // --- أسطر التصحيح المضافة ---
+  console.log(">>>> [DEBUG] Starting application...");
+  console.log(">>>> [DEBUG] Checking environment variables...");
+  console.log(">>>> [DEBUG] DATABASE_URL is set:", !!process.env.DATABASE_URL);
+  console.log(">>>> [DEBUG] TELEGRAM_BOT_TOKEN is set:", !!process.env.TELEGRAM_BOT_TOKEN);
+  console.log(">>>> [DEBUG] NODE_ENV is:", process.env.NODE_ENV);
+  // -----------------------------
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+  try {
+    console.log(">>>> [DEBUG] Calling registerRoutes...");
+    const server = await registerRoutes(app);
+    console.log(">>>> [DEBUG] registerRoutes finished successfully.");
 
-    res.status(status).json({ message });
-    throw err;
-  });
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+      res.status(status).json({ message });
+      throw err;
+    });
+
+    if (app.get("env") === "development") {
+      console.log(">>>> [DEBUG] Setting up Vite for development...");
+      await setupVite(app, server);
+    } else {
+      console.log(">>>> [DEBUG] Serving static files for production...");
+      serveStatic(app);
+    }
+
+    const port = parseInt(process.env.PORT || '5000', 10);
+    console.log(`>>>> [DEBUG] Preparing to listen on port ${port}`);
+    server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      log(`serving on port ${port}`);
+    });
+
+  } catch (error) {
+    console.error(">>>> [FATAL ERROR] An error occurred during startup:", error);
+    process.exit(1); // تأكد من إنهاء العملية عند حدوث خطأ فادح
   }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
 })();
+// ^^^^^^^^^^^^^^^^^^^^ نهاية التعديل المهم ^^^^^^^^^^^^^^^^^^^^
+
+// ------------------- نهاية الكود المنسوخ -------------------
