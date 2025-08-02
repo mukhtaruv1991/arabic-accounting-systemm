@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url"; // <-- إضافة مهمة
+import { fileURLToPath } from "url";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
@@ -20,7 +20,10 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-// لا تغييرات هنا
+/**
+ * دالة لإعداد خادم Vite في بيئة التطوير (development).
+ * تسمح بالتحديث السريع (Hot Module Replacement).
+ */
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
@@ -48,9 +51,9 @@ export async function setupVite(app: Express, server: Server) {
 
     try {
       const clientTemplate = path.resolve(
-        fileURLToPath(import.meta.url), // استخدم fileURLToPath هنا أيضًا
+        fileURLToPath(import.meta.url),
         "..",
-        "..", // نعود خطوتين للخلف من server/vite.ts
+        "..",
         "client",
         "index.html",
       );
@@ -69,17 +72,19 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
-// ===== التعديل الرئيسي هنا =====
+/**
+ * دالة لخدمة الملفات الثابتة (static files) في بيئة الإنتاج (production).
+ * هذه هي النسخة المعدلة لحل مشكلة 404.
+ */
 export function serveStatic(app: Express) {
-  // __dirname غير موثوق دائمًا في ES Modules، لذا نستخدم هذه الطريقة
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
 
-  // عند تشغيل الكود من `dist/index.js`، يكون `__dirname` هو `.../dist`
-  // لذا المسار إلى مجلد الواجهة الأمامية هو `.../dist/public`
+  // المسار إلى مجلد الواجهة الأمامية المبني
   const distPath = path.resolve(__dirname, "public");
   log(`Serving static files from: ${distPath}`, "production");
 
+  // التحقق من وجود مجلد البناء
   if (!fs.existsSync(distPath)) {
     log(`Error: Build directory not found at ${distPath}`, "production");
     throw new Error(
@@ -87,18 +92,14 @@ export function serveStatic(app: Express) {
     );
   }
 
-  // 1. خدمة الملفات الثابتة (js, css, images)
-  app.use(express.static(distPath));
+  // 1. خدمة الملفات الثابتة (js, css, images) من مجلد /assets
+  // هذا يخبر Express بالبحث عن ملفات مثل /assets/index-xxxx.js
+  app.use('/assets', express.static(path.resolve(distPath, 'assets')));
 
-  // 2. لأي طلب آخر لا يطابق ملفًا ثابتًا أو مسار API، أرسل index.html
-  // هذا ضروري لعمل تطبيقات الصفحة الواحدة (SPA) مثل React
-  app.get("*", (req, res) => {
-    // تحقق من أن الطلب ليس لمسار API لتجنب إرسال HTML بدلاً من JSON
-    if (!req.originalUrl.startsWith('/api/')) {
-      res.sendFile(path.resolve(distPath, "index.html"));
-    } else {
-      // إذا كان الطلب لمسار API غير موجود، أرسل 404
-      res.status(404).json({ message: "API endpoint not found" });
-    }
+  // 2. لأي طلب آخر لا يبدأ بـ /api، أرسل ملف index.html الرئيسي
+  // هذا هو ما يجعل تطبيق الصفحة الواحدة (SPA) مثل React يعمل بشكل صحيح
+  // ويحل مشكلة 404 عند تحديث الصفحة.
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
